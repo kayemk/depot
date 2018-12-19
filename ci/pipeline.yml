@@ -1,0 +1,75 @@
+resources:
+- name: development
+  type: git
+  source:
+    uri: https://github.com/kayemk/depot.git
+    branch: development
+    # private_key: |
+    #  -----BEGIN RSA PRIVATE KEY-----
+    #  -----END RSA PRIVATE KEY-----
+- name: production
+  type: git
+  source:
+    uri: git@github.com:kayemk/depot.git
+    branch: master
+    private_key: ((github_PRIVATE_KEY))
+#- name: notify
+#  type: slack-notification
+#  source:
+#    url: ((slack-webhook))
+## Jobs
+jobs:
+- name: Get-Repository
+  serial: true
+  plan:
+  - get: development
+    resource: development
+    trigger: true
+- name: Check
+  plan:
+  - get: development
+    passed: [Get-Repository]
+    trigger: true
+  - task: check
+    file: development/ci/check.yml
+- name: Build
+  plan:
+  - get: development
+    passed: [Get-Repository]
+    trigger: true
+  - task: build
+    file: development/ci/build.yml
+#    params:
+#     APIKEY: ((api))
+#- name: Test without Build
+#  plan:
+#  - get: development
+#    passed: [Get-Repository]
+#    trigger: true
+#  - task: test-without-build
+#    file: development/ci/twb.yml
+#    params:
+#      APIKEY: ((api))
+- name: Test
+  plan:
+  - get: development
+    passed: [Build]
+    trigger: true
+  - task: test
+    file: development/ci/test.yml
+    params:
+      APIKEY: ((api))
+- name: Push to Master
+  plan:
+  - get: development
+    passed: [Test]
+    trigger: true
+  - put: production
+    params: {repository: development}
+- name: Deploy
+  plan:
+  - get: development
+    passed: [Test]
+    trigger: true
+  #- put: lolstats-production
+  #  params: {repository: development}
